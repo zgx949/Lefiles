@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Manager</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            width: 80%;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .file-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .file-table th, .file-table td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: left;
+        }
+        .file-table th {
+            background-color: #f2f2f2;
+        }
+        .file-actions {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>File Manager</h1>
+    <div>
+        <input type="text" id="pathInput" placeholder="Enter path" style="width: 80%;">
+        <button onclick="loadDirectory()">Load</button>
+    </div>
+    <div>
+        <button onclick="goBack()">Back</button>
+    </div>
+    <table id="fileTable" class="file-table">
+        <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Size</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <div class="file-actions">
+        <input type="text" id="newNameInput" placeholder="Enter name" style="width: 80%;">
+        <button onclick="createFile()">Create File</button>
+        <button onclick="createDirectory()">Create Directory</button>
+    </div>
+</div>
+
+<script>
+    let currentPath = '/';
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDirectory('/');
+    });
+
+    function loadDirectory(path) {
+        currentPath = path;
+        const pathInput = document.getElementById('pathInput');
+        pathInput.value = path;
+        fetch(`/files/ls?path=${path}`)
+            .then(response => response.json())
+            .then(data => {
+                const fileTableBody = document.querySelector('#fileTable tbody');
+                fileTableBody.innerHTML = '';
+                data.forEach(file => {
+                    const row = document.createElement('tr');
+                    const nameCell = document.createElement('td');
+                    nameCell.textContent = file.Name;
+                    nameCell.style.cursor = file.IsDir ? 'pointer' : 'default';
+                    if (file.IsDir) {
+                        nameCell.onclick = () => loadDirectory(path + file.Name + '/');
+                    }
+                    const typeCell = document.createElement('td');
+                    typeCell.textContent = file.IsDir ? 'Directory' : 'File';
+                    const sizeCell = document.createElement('td');
+                    sizeCell.textContent = file.Size;
+                    const actionCell = document.createElement('td');
+
+                    const renameButton = document.createElement('button');
+                    renameButton.textContent = 'Rename';
+                    renameButton.onclick = () => renameFile(file.ID, file.Name);
+                    actionCell.appendChild(renameButton);
+
+                    const deleteButton = document.createElement('button');
+                    deleteButton.textContent = 'Delete';
+                    deleteButton.onclick = () => deleteFile(file.ID);
+                    actionCell.appendChild(deleteButton);
+
+                    if (!file.IsDir) {
+                        const downloadButton = document.createElement('button');
+                        downloadButton.textContent = 'Download';
+                        downloadButton.onclick = () => downloadFile(file.ID);
+                        actionCell.appendChild(downloadButton);
+
+                        const shareButton = document.createElement('button');
+                        shareButton.textContent = 'Share';
+                        shareButton.onclick = () => shareFile(file.ID);
+                        actionCell.appendChild(shareButton);
+                    }
+
+                    row.appendChild(nameCell);
+                    row.appendChild(typeCell);
+                    row.appendChild(sizeCell);
+                    row.appendChild(actionCell);
+                    fileTableBody.appendChild(row);
+                });
+            })
+            .catch(error => console.error('Error loading directory:', error));
+    }
+
+    function createFile() {
+        const fileName = document.getElementById('newNameInput').value;
+        if (!fileName) {
+            alert('File name is required');
+            return;
+        }
+
+        const path = currentPath + fileName;
+        fetch(`/files/create?path=${path}`, { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                alert('File created successfully');
+                loadDirectory(currentPath);
+            })
+            .catch(error => console.error('Error creating file:', error));
+    }
+
+    function createDirectory() {
+        const dirName = document.getElementById('newNameInput').value;
+        if (!dirName) {
+            alert('Directory name is required');
+            return;
+        }
+
+        const path = currentPath + dirName;
+        fetch(`/files/mkdir?path=${path}`, { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                alert('Directory created successfully');
+                loadDirectory(currentPath);
+            })
+            .catch(error => console.error('Error creating directory:', error));
+    }
+
+    function deleteFile(id) {
+        fetch(`/files/del?id=${id}`, { method: 'DELETE' })
+            .then(response => response.json())
+            .then(data => {
+                alert('File/Directory deleted successfully');
+                loadDirectory(currentPath);
+            })
+            .catch(error => console.error('Error deleting file/directory:', error));
+    }
+
+    function renameFile(id, oldName) {
+        const newName = prompt("Enter new name:", oldName);
+        if (newName && newName !== oldName) {
+            fetch(`/files/update`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ ID: id, Name: newName })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    alert('File/Directory renamed successfully');
+                    loadDirectory(currentPath);
+                })
+                .catch(error => console.error('Error renaming file/directory:', error));
+        }
+    }
+
+    function downloadFile(id) {
+        fetch(`/files/read?id=${id}`)
+            .then(response => response.blob())
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = 'file';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(error => console.error('Error downloading file:', error));
+    }
+
+    function shareFile(id) {
+        const shareLink = `${window.location.origin}/files/read?id=${id}`;
+        navigator.clipboard.writeText(shareLink).then(() => {
+            alert('Share link copied to clipboard');
+        }).catch(err => {
+            console.error('Error sharing file:', err);
+        });
+    }
+
+    function goBack() {
+        const parentPath = currentPath.split('/').slice(0, -2).join('/') + '/';
+        loadDirectory(parentPath);
+    }
+</script>
+</body>
+</html>

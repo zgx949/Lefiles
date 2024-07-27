@@ -36,7 +36,6 @@ func QueryFcbById(id uint) (fcb models.FCB, err error) {
 
 func FindPathFCB(path string) (fcb models.FCB, err error) {
 	if path == "" {
-		err = filepath.ErrBadPattern
 		return
 	}
 	// TODO: 读取PATH的缓存信息
