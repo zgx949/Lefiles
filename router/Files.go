@@ -3,135 +3,225 @@ package router
 import (
 	"Lefiles/config"
 	"Lefiles/models"
+	"Lefiles/services"
 	"net/http"
-	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/acme/autocert"
 )
 
-// 创建文件夹或文件
-func createFCB(c *gin.Context, isDir bool) {
-	var newFCB models.FCB
+var (
+	dirCache autocert.Cache
+)
 
-	// 绑定 JSON 数据到 FCB 结构体
-	if err := c.BindJSON(&newFCB); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
+// 打开文件
+func open(c *gin.Context) {
+	path := c.Query("path")
+	if path == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Path is required"})
 		return
 	}
 
-	newFCB.IsDir = isDir
-	// 检查对应当前目录下是否有重复文件名
-	var existingFCB models.FCB
-	if err := config.DB.Where("name = ? AND parent_id = ?", newFCB.Name, newFCB.ParentId).First(&existingFCB).Error; err == nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "File/Directory already exists"})
-		return
-	}
+	paths := strings.Split(path, "/")
 
-	// 创建新的 FCB 实体并保存到数据库
-	if err := config.DB.Create(&newFCB).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
+	dirPath := paths[:len(paths)-1]
 
-	// 返回成功消息
-	c.JSON(http.StatusOK, gin.H{"message": "FCB created successfully", "fcb": newFCB})
-}
-
-// 打开目录
-func openDir(c *gin.Context) {
-	parentId := c.Query("parent_id")
-	query := config.DB
-
-	if parentId == "" {
-		query = query.Where("parent_id = ''").Or("parent_id is null")
-	} else {
-		query = query.Where("parent_id = ?", parentId)
-	}
-
-	var fcbs []models.FCB
-	query.Find(&fcbs)
-
-	c.JSON(http.StatusOK, fcbs)
-}
-
-// TODO: 下载文件
-func readFile(c *gin.Context) {
-	id := c.Query("id")
-	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID is required"})
-		return
-	}
-
-	var inode models.Inode
-	if err := config.DB.First(&inode, id).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.File(inode.Url)
-}
-
-// 创建文件夹
-func createDir(c *gin.Context) {
-	createFCB(c, true)
-}
-
-// TODO: 上传文件
-func uploadFile(c *gin.Context) {
-	file, err := c.FormFile("file")
+	fcb, err := services.FindPathFCB(strings.Join(dirPath, "/"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	destPath := filepath.Join("./uploads", filepath.Base(file.Filename))
-	if err := c.SaveUploadedFile(file, destPath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	newInode := models.Inode{
-		Url: destPath,
-		// 其他字段根据需求设置
-	}
-
-	if err := config.DB.Create(&newInode).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "File uploaded successfully"})
+	c.JSON(http.StatusOK, fcb)
 }
 
-// TODO: 删除文件/文件夹
-func deleteFCB(c *gin.Context) {
+// 打开文件夹
+func ls(c *gin.Context) {
+	path := c.Query("path")
+	if path == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Path is required"})
+		return
+	}
+	// TODO: 读取PATH的缓存信息
+	dirFcb, err := services.FindPathFCB(path)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	fcbs, err := services.QueryFcbByParentId(dirFcb.ID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, fcbs)
+}
+
+// TODO:读取文件
+func read(c *gin.Context) {
 	id := c.Query("id")
-	if id == "" {
+	parseUint, err := strconv.ParseUint(id, 10, 32)
+	if id == "" || err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "ID is required"})
 		return
 	}
 
-	// 查找指定 ID 的记录
+	if fcb, err := services.QueryFcbById(uint(parseUint)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	} else {
+		if fcb.IsDir {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot read directory"})
+			return
+		}
+		// TODO: 读取索引列表，并返回文件流
+
+	}
+
+}
+
+// 删除文件/文件夹
+func del(c *gin.Context) {
+	var err error
+	id := c.Query("id")
+	parseUint, err := strconv.ParseUint(id, 10, 32)
+	if id == "" || err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID is required"})
+		return
+	}
+
 	var fcb models.FCB
-	if err := config.DB.First(&fcb, id).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
 
-	// 从数据库中删除记录 TODO：同时标记索引节点为删除状态，以及删除子目录（广度有限搜索）
-	if err := config.DB.Delete(&fcb).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if fcb, err = services.QueryFcbById(uint(parseUint)); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "File/Directory not found"})
 		return
+	} else {
+		if err := config.DB.Delete(&fcb).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 	}
-
+	// TODO: 需要迭代删除, 队列 广度优先删除
+	//fcbs, err := services.QueryFcbByParentId(fcb.ID)
+	//for _, fcb := range fcbs {
+	//
+	//}
 	c.JSON(http.StatusOK, gin.H{"message": "File/Directory deleted successfully"})
+}
+
+// 更新文件/文件夹FCB
+func update(c *gin.Context) {
+	var updatedFCB models.FCB
+	if err := c.BindJSON(&updatedFCB); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
+		return
+	}
+
+	var fcb models.FCB
+	if err := config.DB.First(&fcb, updatedFCB.ID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "File/Directory not found"})
+		return
+	}
+
+	fcb.Name = updatedFCB.Name
+	//fcb.Size = updatedFCB.Size
+	//fcb.IsDir = updatedFCB.IsDir
+	fcb.ParentId = updatedFCB.ParentId
+
+	if err := config.DB.Save(&fcb).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "FCB updated successfully", "fcb": fcb})
+}
+
+// 创建文件FCB
+func create(c *gin.Context) {
+	path := c.Query("path")
+	if path == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Path is required"})
+		return
+	}
+
+	paths := strings.Split(path, "/")
+	dirPath := paths[:len(paths)-1]
+	fileName := paths[len(paths)-1]
+
+	pathFcb, err := services.FindPathFCB(strings.Join(dirPath, "/"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var newFCB models.FCB
+	newFCB.Name = fileName
+	newFCB.ParentId = pathFcb.ID
+	newFCB.IsDir = false
+
+	var existingFCB models.FCB
+	if err = config.DB.Where("name = ? AND parent_id = ?", fileName, pathFcb.ID).First(&existingFCB).Error; err == nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "File already exists"})
+		return
+	}
+
+	if err = config.DB.Create(&newFCB).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "File created successfully", "fcb": newFCB})
+}
+
+// 创建文件夹FCB
+func mkdir(c *gin.Context) {
+	path := c.Query("path")
+	if path == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Path is required"})
+		return
+	}
+
+	paths := strings.Split(path, "/")
+
+	// 从根目录开始逐层创建
+	var parentId uint
+	for i, p := range paths {
+		if p == "" {
+			continue
+		}
+		var fcb models.FCB
+		if err := config.DB.Where("name = ? AND parent_id = ?", p, parentId).First(&fcb).Error; err != nil {
+			// 如果没有找到，则创建新的目录
+			newFCB := models.FCB{
+				Name:     p,
+				ParentId: parentId,
+				IsDir:    true,
+			}
+			if err := config.DB.Create(&newFCB).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			fcb = newFCB
+		}
+		parentId = fcb.ID
+		if i == len(paths)-1 && !fcb.IsDir {
+			c.JSON(http.StatusConflict, gin.H{"error": "File with the same name already exists"})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Directory created successfully"})
 }
 
 // FilesRouterInit 初始化文件路由
 func FilesRouterInit(rg *gin.RouterGroup) {
-	rg.GET("/openDir", openDir)
-	rg.GET("/readFile", readFile)
-	rg.POST("/createDir", createDir)
-	rg.POST("/uploadFile", uploadFile)
-	rg.DELETE("/deleteFCB", deleteFCB)
+	rg.GET("/open", open)
+	rg.GET("/ls", ls)
+	rg.GET("/read", read)
+	rg.DELETE("/del", del)
+	rg.PUT("/update", update)
+	rg.POST("/create", create)
+	rg.POST("/mkdir", mkdir)
 }

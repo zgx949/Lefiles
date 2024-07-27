@@ -1,54 +1,33 @@
-### 测试创建文件夹
-POST http://localhost:8080/files/createDir
+### Open a file
+GET http://localhost:8080/files/open?path=/path/to/your/file
+Content-Type: application/json
+
+### List contents of a directory
+GET http://localhost:8080/files/ls?path=/path/to/your
+Content-Type: application/json
+
+### Read a file by ID
+GET http://localhost:8080/files/read?id=2
+Content-Type: application/json
+
+### Delete a file or directory by ID
+DELETE http://localhost:8080/files/del?id=1
+Content-Type: application/json
+
+### Update a file or directory's FCB
+PUT http://localhost:8080/files/update
 Content-Type: application/json
 
 {
-  "name": "New Folder",
-  "size": 0,
-  "is_dir": true,
-  "parent_id": ""
+  "id": 1,
+  "name": "updated_name",
+  "parent_id": 0
 }
 
-
-### 测试创建文件
-POST http://localhost:8080/files/createDir
+### Create a file
+POST http://localhost:8080/files/create?path=/path/to/your/newfile.txt
 Content-Type: application/json
 
-{
-  "name": "example.txt",
-  "size": 12345,
-  "is_dir": false,
-  "parent_id": ""
-}
-
-
-### 测试上传文件
-POST http://localhost:8080/files/uploadFile
-Content-Type: multipart/form-data; boundary=boundary
-
---boundary
-Content-Disposition: form-data; name="file"; filename="example.txt"
-Content-Type: text/plain
-
-<内容是上传的文件的实际内容>
---boundary--
-
-###
-
-### 测试获取目录中的文件和文件夹
-GET http://localhost:8080/files/openDir?parent_id=
-
-###
-
-### 测试下载文件
-GET http://localhost:8080/files/readFile?id=<文件ID>
-
-###
-
-### 测试删除文件夹
-DELETE http://localhost:8080/files/deleteFCB?id=<文件夹ID>
-
-###
-
-### 测试删除文件
-DELETE http://localhost:8080/files/deleteFCB?id=<文件ID>
+### Create a directory
+POST http://localhost:8080/files/mkdir?path=/path/to/your
+Content-Type: application/json
