@@ -382,7 +382,6 @@ func upload(c *gin.Context) {
 		if err != nil {
 			break
 		}
-
 		err = services.WriteBlockByUrl(inodes[currentChunk].Url, buf[:n])
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

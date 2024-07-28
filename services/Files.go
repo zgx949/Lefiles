@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -156,16 +157,45 @@ func WriteBlockByUrl(url string, buf []byte) error {
 
 // GetInodes 新建索引节点
 func GetInodes(amount uint, prot string, fcbId uint) ([]models.Inode, error) {
-	inodes := make([]models.Inode, 0)
-	for i := uint(0); i < amount; i++ {
-		inode := models.Inode{}
-		// 生成一个不重复的UUID
-		inode.Url = prot + "://" + utils.GenerateUUID()
+	var (
+		inodes        []models.Inode
+		deletedInodes []models.Inode
+		mutex         sync.Mutex
+	)
+
+	// 加锁
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	// 查询已删除的节点
+	if err := config.DB.Unscoped().Where("deleted_at is not null").Limit(int(amount)).Find(&deletedInodes).Error; err != nil {
+		return nil, err
+	}
+
+	// 使用已删除的节点
+	for i := 0; i < len(deletedInodes) && uint(len(inodes)) < amount; i++ {
+		inode := &deletedInodes[i] // 获取指针
 		inode.FCBId = fcbId
+		inode.FileIndex = uint(i)
+		inode.DeletedAt = gorm.DeletedAt{} // 重置删除时间，复用节点
+		if err := config.DB.Save(inode).Error; err != nil {
+			return nil, err
+		}
+		inodes = append(inodes, *inode)
+	}
+
+	// 如果已删除节点不足，则新建剩余的节点
+	for i := uint(len(inodes)); i < amount; i++ {
+		inode := models.Inode{
+			Url:       prot + "://" + utils.GenerateUUID(),
+			FCBId:     fcbId,
+			FileIndex: i,
+		}
 		if err := config.DB.Create(&inode).Error; err != nil {
 			return nil, err
 		}
 		inodes = append(inodes, inode)
 	}
+
 	return inodes, nil
 }
