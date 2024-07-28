@@ -2,12 +2,15 @@ package services
 
 import (
 	"Lefiles/config"
+	"Lefiles/interfaces"
 	"Lefiles/models"
+	"log"
 	"net/http"
 	"path/filepath"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // QueryFcb 通过名称和上级id搜索FCB
@@ -87,4 +90,42 @@ func createFCB(c *gin.Context, isDir bool) {
 
 	// 返回成功消息
 	c.JSON(http.StatusOK, gin.H{"message": "FCB created successfully", "fcb": newFCB})
+}
+
+func ReadInodes(fcb models.FCB) (inodes []models.Inode, err error) {
+	// 检查 FCB 是否存在
+	if fcb.ID == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+
+	// 查询与 FCB 相关的 Inodes
+	if err = config.DB.Where("fcb_id = ?", fcb.ID).Find(&inodes).Error; err != nil {
+		return nil, err
+	}
+
+	return inodes, nil
+}
+
+// 存储协议映射
+var protMap = map[string]interfaces.BlockStorage{
+	"local": LocalStorage,
+}
+
+func ReadChunkByUrl(url string) ([]byte, error) {
+	// TODO：解析不同url协议，然后从本地或者远程读取文件块并返回
+
+	items := strings.Split(url, "://")
+	prot, path := items[0], items[1]
+	if storage, ok := protMap[prot]; ok {
+		path = "./blocks/" + path
+		block, err := storage.ReadBlock(path)
+		if err != nil {
+			return nil, err
+		}
+		return block, err
+	}
+
+	log.Default().Println(prot, path)
+
+	return nil, nil
 }

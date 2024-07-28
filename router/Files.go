@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/acme/autocert"
@@ -68,18 +69,69 @@ func read(c *gin.Context) {
 		return
 	}
 
-	if fcb, err := services.QueryFcbById(uint(parseUint)); err != nil {
+	fcb, err := services.QueryFcbById(uint(parseUint))
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
-	} else {
-		if fcb.IsDir {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot read directory"})
-			return
-		}
-		// TODO: 读取索引列表，并返回文件流
-
 	}
 
+	if fcb.IsDir {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot read directory"})
+		return
+	}
+
+	// 读取索引列表
+	inodes, err := services.ReadInodes(fcb)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot read inodes"})
+		return
+	}
+
+	chunks := make([][]byte, len(inodes))
+	var mutex sync.Mutex
+	cond := sync.NewCond(&mutex)
+
+	var wg sync.WaitGroup
+	wg.Add(len(inodes))
+
+	for index, inode := range inodes {
+		go func(index int, inode models.Inode) {
+			defer wg.Done()
+			chunk, err := services.ReadChunkByUrl(inode.Url)
+			if err != nil {
+				chunk = nil
+			}
+
+			mutex.Lock()
+			chunks[index] = chunk
+			cond.Broadcast()
+			mutex.Unlock()
+		}(index, inode)
+	}
+
+	go func() {
+		wg.Wait()
+		mutex.Lock()
+		cond.Broadcast()
+		mutex.Unlock()
+	}()
+
+	for i := 0; i < len(chunks); i++ {
+		mutex.Lock()
+		for chunks[i] == nil {
+			cond.Wait()
+		}
+		if chunks[i] != nil {
+			_, err := c.Writer.Write(chunks[i])
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to write chunk"})
+				mutex.Unlock()
+				return
+			}
+			chunks[i] = nil // 尽快释放内存
+		}
+		mutex.Unlock()
+	}
 }
 
 // 删除文件/文件夹
