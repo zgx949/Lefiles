@@ -117,29 +117,29 @@
         </div>
     </h1>
     <div class="controls">
-        <input type="text" id="pathInput" placeholder="Enter path">
-        <button onclick="loadDirectory()">Load</button>
-        <button onclick="goBack()">Back</button>
+        <input type="text" id="pathInput" placeholder="请输入名称">
+        <button onclick="loadDirectory()">载入</button>
+        <button onclick="goBack()">后退</button>
     </div>
     <table id="fileTable" class="file-table">
         <thead>
         <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Size</th>
-            <th>Actions</th>
+            <th>名称</th>
+            <th>类型</th>
+            <th>大小</th>
+            <th>操作</th>
         </tr>
         </thead>
         <tbody></tbody>
     </table>
     <div class="file-actions">
         <input type="text" id="newNameInput" placeholder="Enter name">
-        <button onclick="createFile()">Create File</button>
-        <button onclick="createDirectory()">Create Directory</button>
+        <button onclick="createFile()">创建文件</button>
+        <button onclick="createDirectory()">创建文件夹</button>
     </div>
     <div class="file-actions">
         <input type="file" id="fileInput">
-        <button onclick="uploadFile()">Upload File</button>
+        <button onclick="uploadFile()">上传文件</button>
     </div>
 </div>
 
@@ -147,13 +147,20 @@
     let currentPath = '/';
 
     document.addEventListener('DOMContentLoaded', () => {
-        loadDirectory('/');
+        const urlParams = new URLSearchParams(window.location.search);
+        const path = urlParams.get('path') || '/';
+        loadDirectory(path);
     });
 
     function loadDirectory(path) {
         currentPath = path;
         const pathInput = document.getElementById('pathInput');
-        pathInput.value = path;
+        if (path) {
+            pathInput.value = path;
+        } else {
+            path = pathInput.value
+            currentPath = path
+        }
         fetch(`/files/ls?path=${path}`)
             .then(response => response.json())
             .then(data => {
@@ -180,30 +187,32 @@
                     }
 
                     const typeCell = document.createElement('td');
-                    typeCell.textContent = file.IsDir ? 'Directory' : 'File';
+                    typeCell.textContent = file.IsDir ? '目录' : '文件';
                     const sizeCell = document.createElement('td');
-                    sizeCell.textContent = formatSize(file.Size);
+                    sizeCell.textContent = file.IsDir ? '-' : formatSize(file.Size);
                     const actionCell = document.createElement('td');
 
                     const renameButton = document.createElement('button');
-                    renameButton.innerHTML = '<svg t="1722155146763" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="10654" width="20" height="20"><path d="M318.097009 695.063868c0.030707 0.035825 0.040943 0.061415 0.066532 0.071651 21.019117 20.983292 55.063229 20.947467 76.031167-0.071651L982.811872 106.559298c21.039589-21.049824 21.039589-55.18094 0-76.230764-0.061415-0.07165-0.133065-0.133065-0.179125-0.179126-21.049824-20.952585-55.093936-20.870699-76.031167 0.179126l-588.504571 588.50457c-21.029353 21.049824-21.029353 55.18094 0 76.230764z" fill="#F7E38B" p-id="10655"></path><path d="M970.134893 431.078702h-0.230304c-29.632503 0-53.655813 24.02331-53.655813 53.655813v431.436954H107.813716V107.552166l431.401129 0.199597h0.040943c29.693917-0.076768 53.691638-24.228025 53.61487-53.916824v-0.230305c0-29.632503-24.018192-53.650695-53.655813-53.650695H53.543758a53.696756 53.696756 0 0 0-38.020701 15.798884 53.328269 53.328269 0 0 0-15.522518 37.80575v916.841911A54.280194 54.280194 0 0 0 15.789187 1008.410949a53.338505 53.338505 0 0 0 37.821104 15.517401h916.8675a54.280194 54.280194 0 0 0 38.010466-15.788648 53.415273 53.415273 0 0 0 15.5174-37.856929V484.729397c-0.061415-29.688799-24.181964-53.712109-53.870764-53.650695z" fill="#6CC0F1" p-id="10656"></path></svg>';
+                    renameButton.innerHTML = '<img src="/static/rename.svg" alt="重命名">';
                     renameButton.onclick = () => renameFile(file.ID, file.Name);
                     renameButton.className = 'actions-button'
                     actionCell.appendChild(renameButton);
 
                     const deleteButton = document.createElement('button');
-                    deleteButton.innerHTML = '<svg t="1722154948748" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="8367" width="20" height="20"><path d="M253.2 268h516.6c-8.7 0-15.9-7.6-15.3-16.4L715.4 878c0.5-7.4 6.3-12.8 13.8-12.8H293.8c7.4 0 13.3 5.5 13.8 12.8l-39.1-626.4c0.5 8.7-6.6 16.4-15.3 16.4z m-2 613.6c1.4 22.4 20.2 40.1 42.6 40.1h435.3c22.4 0 41.2-17.8 42.6-40.1l39.1-626.4c1.5-23.9-17.2-43.7-41.1-43.7H253.2c-23.9 0-42.5 19.8-41.1 43.7l39.1 626.4zM878.7 268c15.6 0 28.3-12.6 28.3-28.2s-12.6-28.3-28.3-28.3H144.3c-15.6 0-28.3 12.6-28.3 28.3 0 15.6 12.6 28.2 28.3 28.2h734.4zM389 268h245c23.1 0 41.7-18.9 41.7-41.8v-81.8c0-23.1-18.8-41.8-41.7-41.8H389c-23.1 0-41.7 18.9-41.7 41.8v81.8c-0.1 23 18.7 41.8 41.7 41.8z m14.7-123.7c0 8.1-6.5 14.7-14.8 14.7h245c-8.2 0-14.8-6.5-14.8-14.7v81.8c0-8.1 6.5-14.7 14.8-14.7H389c8.2 0 14.8 6.5 14.8 14.7v-81.8z m174.7 626.6c0 15.6 12.6 28.2 28.3 28.2 15.6 0 28.2-12.6 28.2-28.2V362.3c0-15.6-12.6-28.2-28.2-28.2s-28.3 12.6-28.3 28.2v408.6zM444.5 362.3c0-15.6-12.6-28.2-28.2-28.2s-28.2 12.6-28.2 28.2v408.6c0 15.6 12.6 28.2 28.2 28.2s28.2-12.6 28.2-28.2V362.3z m0 0" fill="#EB5D51" p-id="8368"></path></svg>';
+                    deleteButton.innerHTML = '<img src="/static/delete.svg" alt="删除">';
                     deleteButton.onclick = () => deleteFile(file.ID);
                     deleteButton.className = 'actions-button'
                     actionCell.appendChild(deleteButton);
 
+                    const shareButton = document.createElement('button');
+                    shareButton.innerHTML = '<img src="/static/share.svg" alt="分享">';
                     if (!file.IsDir) {
-                        const shareButton = document.createElement('button');
-                        shareButton.innerHTML = '<svg t="1722155051462" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="9357" width="20" height="20"><path d="M512 73.142857v73.142857C310.016 146.285714 146.285714 310.016 146.285714 512s163.730286 365.714286 365.714286 365.714286 365.714286-163.730286 365.714286-365.714286h73.142857c0 242.358857-196.498286 438.857143-438.857143 438.857143S73.142857 754.358857 73.142857 512 269.641143 73.142857 512 73.142857z m354.450286 122.258286l-339.309715 339.309714L475.428571 482.998857 812.141714 146.285714h-201.691428V73.142857h329.142857v329.142857h-73.142857V195.401143z" fill="#1afa29" p-id="9358"></path></svg>';
                         shareButton.onclick = () => shareFile(file.ID);
-                        shareButton.className = 'actions-button'
-                        actionCell.appendChild(shareButton);
+                    } else {
+                        shareButton.onclick = () => shareFolder(path + file.Name);
                     }
+                    shareButton.className = 'actions-button'
+                    actionCell.appendChild(shareButton);
 
                     row.appendChild(nameCell);
                     row.appendChild(typeCell);
@@ -216,9 +225,9 @@
     }
 
     // SVG Icons for folder and file
-    const folderSvgIcon = `<svg t="1722154061886" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="4284" width="24" height="24"><path d="M848.8576 199.1936H415.7568c0-26.5728-21.5424-48.128-48.128-48.128H175.1424c-26.5728 0-48.128 21.5424-48.128 48.128V343.5648c0 26.5984 21.5424 48.1408 48.128 48.1408h673.728c26.5728 0 48.128-21.5424 48.128-48.1408v-96.2432c-0.0128-26.5856-21.5552-48.128-48.1408-48.128z" fill="#CCA352" p-id="4285"></path><path d="M800.7424 247.3088H223.2576c-26.5728 0-48.128 21.5424-48.128 48.128v48.128c0 26.5984 21.5424 48.1408 48.128 48.1408h577.472c26.5728 0 48.128-21.5424 48.128-48.1408v-48.128c0-26.5728-21.5424-48.128-48.1152-48.128z" fill="#FFFFFF" p-id="4286"></path><path d="M848.8576 295.4368H175.1424c-26.5728 0-48.128 21.5424-48.128 48.128v481.2544c0 26.5472 21.5424 48.128 48.128 48.128h673.728c26.5728 0 48.128-21.568 48.128-48.128V343.552c-0.0128-26.5728-21.5552-48.1152-48.1408-48.1152z" fill="#FFCC66" p-id="4287"></path></svg>`;
+    const folderSvgIcon = '<img src="/static/folder.svg" alt="文件夹">';
 
-    const fileSvgIcon = `<svg t="1722154086354" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="5340" width="24" height="24"><path d="M0 0h1024v1024H0V0z" fill="#202425" opacity=".01" p-id="5341"></path><path d="M102.4 68.266667a34.133333 34.133333 0 0 1 34.133333-34.133334h750.933334a34.133333 34.133333 0 0 1 34.133333 34.133334v634.402133a34.133333 34.133333 0 0 1-10.001067 24.132267l-253.064533 253.064533a34.133333 34.133333 0 0 1-24.132267 10.001067H136.533333a34.133333 34.133333 0 0 1-34.133333-34.133334V68.266667z" fill="#11AA66" p-id="5342"></path><path d="M238.933333 238.933333a34.133333 34.133333 0 0 1 34.133334-34.133333h477.866666a34.133333 34.133333 0 1 1 0 68.266667H273.066667a34.133333 34.133333 0 0 1-34.133334-34.133334z m0 204.8a34.133333 34.133333 0 0 1 34.133334-34.133333h477.866666a34.133333 34.133333 0 1 1 0 68.266667H273.066667a34.133333 34.133333 0 0 1-34.133334-34.133334z m34.133334 170.666667a34.133333 34.133333 0 1 0 0 68.266667h204.8a34.133333 34.133333 0 1 0 0-68.266667H273.066667z" fill="#FFFFFF" p-id="5343"></path><path d="M648.533333 750.933333a34.133333 34.133333 0 0 1 34.133334-34.133333h230.7072a3.413333 3.413333 0 0 1 2.389333 5.802667l-261.393067 261.461333a3.413333 3.413333 0 0 1-5.8368-2.423467V750.933333z" fill="#FFAA44" p-id="5344"></path></svg>`;
+    const fileSvgIcon = `'<img src="/static/file.svg" alt="文件">'`;
 
     // Format size function (same as previously provided)
     function formatSize(size) {
@@ -331,6 +340,15 @@
 
     function shareFile(id) {
         const shareLink = `${window.location.origin}/files/read?id=${id}`;
+        navigator.clipboard.writeText(shareLink).then(() => {
+            alert('Share link copied to clipboard');
+        }).catch(err => {
+            console.error('Error sharing file:', err);
+        });
+    }
+
+    function shareFolder (path) {
+        const shareLink = `${window.location.origin}?path=${path}/`
         navigator.clipboard.writeText(shareLink).then(() => {
             alert('Share link copied to clipboard');
         }).catch(err => {
