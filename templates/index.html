@@ -25,6 +25,7 @@
             display: flex;
             justify-content: space-between;
             margin-bottom: 20px;
+            column-gap: 20px;
         }
         .controls input[type="text"] {
             flex: 1;
@@ -65,6 +66,7 @@
             display: flex;
             justify-content: space-between;
             margin-top: 20px;
+            column-gap: 20px;
         }
         .file-actions input[type="text"], .file-actions input[type="file"] {
             flex: 1;
@@ -93,16 +95,30 @@
                 width: 100%;
             }
         }
+        .actions-button {
+            cursor: pointer;
+            background: none;
+            border: none;
+            border-radius: 5px;
+            margin-left: 5px;
+            transition: background-color 0.3s;
+        }
+        .actions-button:hover{
+            background-color: bisque;
+        }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>File Manager</h1>
+    <h1>
+        <svg t="1722154787173" class="icon" viewBox="0 0 1108 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="7340" width="50" height="50"><path d="M985.932582 501.175848a31.673176 31.673176 0 0 0-4.226703-11.311848l-141.161031-231.953856v-31.293856c0-11.311848 0-21.973435 0.230301-32.40472 0.880563-97.214161 1.544372-188.887548-109.867174-194.211568H273.231942c-36.401122 0-63.265069 9.320421-82.56972 28.855374-33.298831 33.515584-32.851775 85.888765-32.187967 152.039371 0 9.320421 0.230301 18.871144 0.230301 28.63862v41.332275a29.898502 29.898502 0 0 0-7.776049 8.873366L13.980632 493.196592a30.982272 30.982272 0 0 0-3.549347 9.482987A97.742499 97.742499 0 0 0 0 546.409695V861.190665c0 54.82521 45.504789 99.435889 101.440864 99.435889h794.593004c55.936075 0 101.440864-44.610679 101.440863-99.435889V546.463883a100.926073 100.926073 0 0 0-11.542149-45.288035z m-108.539557-54.188496h-36.848177v-60.555643zM238.158438 75.687781c6.001376-5.987829 17.760279-9.103667 35.073504-9.103667h455.183362c39.286659 2.004974 46.398899 12.192411 45.288035 126.963645 0 10.648039-0.230301 21.52638-0.230301 33.068529v220.398159h-109.379478a33.48849 33.48849 0 0 0-33.515585 33.529131c0 69.686405-59.25512 126.503043-132.287664 126.503043s-132.287665-56.789543-132.287665-126.503043a33.474943 33.474943 0 0 0-33.515585-33.529131h-107.022278v-237.481082c0-10.214531 0-19.982008-0.216754-29.302429-0.447055-46.615653-0.89411-90.562523 12.869767-104.543155z m-79.684183 302.967879v68.358787H118.523787z m771.969307 482.751759c0 17.611261-15.755305 32.635021-34.626448 32.635022H101.210563c-18.640842 0-34.626449-14.901836-34.626449-32.635022V546.463883c0-17.543525 15.768852-32.635021 34.626449-32.635021h201.052865c16.419114 90.76573 98.108271 159.856062 196.202995 159.856062s179.83807-69.23935 196.257184-159.856062h201.093507c18.640842 0 34.626449 14.901836 34.626448 32.635021z m0 0" fill="#0086D9" p-id="7341"></path><path d="M361.78949 227.280097h292.699159a33.515584 33.515584 0 1 0 0-67.031169H361.78949a33.515584 33.515584 0 0 0 0 67.031169z m-33.515584 76.419326a33.48849 33.48849 0 0 0 33.515584 33.515585h292.699159a33.515584 33.515584 0 1 0 0-67.017622H361.78949a33.623961 33.623961 0 0 0-33.515584 33.502037z m0 0" fill="#0086D9" p-id="7342"></path></svg>
+        <div>
+            Lefiles文件系统
+        </div>
+    </h1>
     <div class="controls">
         <input type="text" id="pathInput" placeholder="Enter path">
         <button onclick="loadDirectory()">Load</button>
-    </div>
-    <div class="controls">
         <button onclick="goBack()">Back</button>
     </div>
     <table id="fileTable" class="file-table">
@@ -146,11 +162,23 @@
                 data.forEach(file => {
                     const row = document.createElement('tr');
                     const nameCell = document.createElement('td');
-                    nameCell.textContent = file.Name;
-                    nameCell.style.cursor = file.IsDir ? 'pointer' : 'default';
+
+                    const icon = document.createElement('span');
+                    icon.innerHTML = file.IsDir ? folderSvgIcon : fileSvgIcon;
+                    icon.style.marginRight = '10px';
+
+                    nameCell.appendChild(icon);
+                    nameCell.appendChild(document.createTextNode(file.Name));
+                    nameCell.style.cursor = 'pointer';
+
                     if (file.IsDir) {
                         nameCell.onclick = () => loadDirectory(path + file.Name + '/');
+                    } else {
+                        nameCell.onclick = () => {
+                            window.open(`${window.location.origin}/files/read?id=${file.ID}`)
+                        }
                     }
+
                     const typeCell = document.createElement('td');
                     typeCell.textContent = file.IsDir ? 'Directory' : 'File';
                     const sizeCell = document.createElement('td');
@@ -158,24 +186,22 @@
                     const actionCell = document.createElement('td');
 
                     const renameButton = document.createElement('button');
-                    renameButton.textContent = 'Rename';
+                    renameButton.innerHTML = '<svg t="1722155146763" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="10654" width="20" height="20"><path d="M318.097009 695.063868c0.030707 0.035825 0.040943 0.061415 0.066532 0.071651 21.019117 20.983292 55.063229 20.947467 76.031167-0.071651L982.811872 106.559298c21.039589-21.049824 21.039589-55.18094 0-76.230764-0.061415-0.07165-0.133065-0.133065-0.179125-0.179126-21.049824-20.952585-55.093936-20.870699-76.031167 0.179126l-588.504571 588.50457c-21.029353 21.049824-21.029353 55.18094 0 76.230764z" fill="#F7E38B" p-id="10655"></path><path d="M970.134893 431.078702h-0.230304c-29.632503 0-53.655813 24.02331-53.655813 53.655813v431.436954H107.813716V107.552166l431.401129 0.199597h0.040943c29.693917-0.076768 53.691638-24.228025 53.61487-53.916824v-0.230305c0-29.632503-24.018192-53.650695-53.655813-53.650695H53.543758a53.696756 53.696756 0 0 0-38.020701 15.798884 53.328269 53.328269 0 0 0-15.522518 37.80575v916.841911A54.280194 54.280194 0 0 0 15.789187 1008.410949a53.338505 53.338505 0 0 0 37.821104 15.517401h916.8675a54.280194 54.280194 0 0 0 38.010466-15.788648 53.415273 53.415273 0 0 0 15.5174-37.856929V484.729397c-0.061415-29.688799-24.181964-53.712109-53.870764-53.650695z" fill="#6CC0F1" p-id="10656"></path></svg>';
                     renameButton.onclick = () => renameFile(file.ID, file.Name);
+                    renameButton.className = 'actions-button'
                     actionCell.appendChild(renameButton);
 
                     const deleteButton = document.createElement('button');
-                    deleteButton.textContent = 'Delete';
+                    deleteButton.innerHTML = '<svg t="1722154948748" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="8367" width="20" height="20"><path d="M253.2 268h516.6c-8.7 0-15.9-7.6-15.3-16.4L715.4 878c0.5-7.4 6.3-12.8 13.8-12.8H293.8c7.4 0 13.3 5.5 13.8 12.8l-39.1-626.4c0.5 8.7-6.6 16.4-15.3 16.4z m-2 613.6c1.4 22.4 20.2 40.1 42.6 40.1h435.3c22.4 0 41.2-17.8 42.6-40.1l39.1-626.4c1.5-23.9-17.2-43.7-41.1-43.7H253.2c-23.9 0-42.5 19.8-41.1 43.7l39.1 626.4zM878.7 268c15.6 0 28.3-12.6 28.3-28.2s-12.6-28.3-28.3-28.3H144.3c-15.6 0-28.3 12.6-28.3 28.3 0 15.6 12.6 28.2 28.3 28.2h734.4zM389 268h245c23.1 0 41.7-18.9 41.7-41.8v-81.8c0-23.1-18.8-41.8-41.7-41.8H389c-23.1 0-41.7 18.9-41.7 41.8v81.8c-0.1 23 18.7 41.8 41.7 41.8z m14.7-123.7c0 8.1-6.5 14.7-14.8 14.7h245c-8.2 0-14.8-6.5-14.8-14.7v81.8c0-8.1 6.5-14.7 14.8-14.7H389c8.2 0 14.8 6.5 14.8 14.7v-81.8z m174.7 626.6c0 15.6 12.6 28.2 28.3 28.2 15.6 0 28.2-12.6 28.2-28.2V362.3c0-15.6-12.6-28.2-28.2-28.2s-28.3 12.6-28.3 28.2v408.6zM444.5 362.3c0-15.6-12.6-28.2-28.2-28.2s-28.2 12.6-28.2 28.2v408.6c0 15.6 12.6 28.2 28.2 28.2s28.2-12.6 28.2-28.2V362.3z m0 0" fill="#EB5D51" p-id="8368"></path></svg>';
                     deleteButton.onclick = () => deleteFile(file.ID);
+                    deleteButton.className = 'actions-button'
                     actionCell.appendChild(deleteButton);
 
                     if (!file.IsDir) {
-                        const downloadButton = document.createElement('button');
-                        downloadButton.textContent = 'Download';
-                        downloadButton.onclick = () => downloadFile(file.ID);
-                        actionCell.appendChild(downloadButton);
-
                         const shareButton = document.createElement('button');
-                        shareButton.textContent = 'Share';
+                        shareButton.innerHTML = '<svg t="1722155051462" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="9357" width="20" height="20"><path d="M512 73.142857v73.142857C310.016 146.285714 146.285714 310.016 146.285714 512s163.730286 365.714286 365.714286 365.714286 365.714286-163.730286 365.714286-365.714286h73.142857c0 242.358857-196.498286 438.857143-438.857143 438.857143S73.142857 754.358857 73.142857 512 269.641143 73.142857 512 73.142857z m354.450286 122.258286l-339.309715 339.309714L475.428571 482.998857 812.141714 146.285714h-201.691428V73.142857h329.142857v329.142857h-73.142857V195.401143z" fill="#1afa29" p-id="9358"></path></svg>';
                         shareButton.onclick = () => shareFile(file.ID);
+                        shareButton.className = 'actions-button'
                         actionCell.appendChild(shareButton);
                     }
 
@@ -188,6 +214,25 @@
             })
             .catch(error => console.error('Error loading directory:', error));
     }
+
+    // SVG Icons for folder and file
+    const folderSvgIcon = `<svg t="1722154061886" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="4284" width="24" height="24"><path d="M848.8576 199.1936H415.7568c0-26.5728-21.5424-48.128-48.128-48.128H175.1424c-26.5728 0-48.128 21.5424-48.128 48.128V343.5648c0 26.5984 21.5424 48.1408 48.128 48.1408h673.728c26.5728 0 48.128-21.5424 48.128-48.1408v-96.2432c-0.0128-26.5856-21.5552-48.128-48.1408-48.128z" fill="#CCA352" p-id="4285"></path><path d="M800.7424 247.3088H223.2576c-26.5728 0-48.128 21.5424-48.128 48.128v48.128c0 26.5984 21.5424 48.1408 48.128 48.1408h577.472c26.5728 0 48.128-21.5424 48.128-48.1408v-48.128c0-26.5728-21.5424-48.128-48.1152-48.128z" fill="#FFFFFF" p-id="4286"></path><path d="M848.8576 295.4368H175.1424c-26.5728 0-48.128 21.5424-48.128 48.128v481.2544c0 26.5472 21.5424 48.128 48.128 48.128h673.728c26.5728 0 48.128-21.568 48.128-48.128V343.552c-0.0128-26.5728-21.5552-48.1152-48.1408-48.1152z" fill="#FFCC66" p-id="4287"></path></svg>`;
+
+    const fileSvgIcon = `<svg t="1722154086354" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="5340" width="24" height="24"><path d="M0 0h1024v1024H0V0z" fill="#202425" opacity=".01" p-id="5341"></path><path d="M102.4 68.266667a34.133333 34.133333 0 0 1 34.133333-34.133334h750.933334a34.133333 34.133333 0 0 1 34.133333 34.133334v634.402133a34.133333 34.133333 0 0 1-10.001067 24.132267l-253.064533 253.064533a34.133333 34.133333 0 0 1-24.132267 10.001067H136.533333a34.133333 34.133333 0 0 1-34.133333-34.133334V68.266667z" fill="#11AA66" p-id="5342"></path><path d="M238.933333 238.933333a34.133333 34.133333 0 0 1 34.133334-34.133333h477.866666a34.133333 34.133333 0 1 1 0 68.266667H273.066667a34.133333 34.133333 0 0 1-34.133334-34.133334z m0 204.8a34.133333 34.133333 0 0 1 34.133334-34.133333h477.866666a34.133333 34.133333 0 1 1 0 68.266667H273.066667a34.133333 34.133333 0 0 1-34.133334-34.133334z m34.133334 170.666667a34.133333 34.133333 0 1 0 0 68.266667h204.8a34.133333 34.133333 0 1 0 0-68.266667H273.066667z" fill="#FFFFFF" p-id="5343"></path><path d="M648.533333 750.933333a34.133333 34.133333 0 0 1 34.133334-34.133333h230.7072a3.413333 3.413333 0 0 1 2.389333 5.802667l-261.393067 261.461333a3.413333 3.413333 0 0 1-5.8368-2.423467V750.933333z" fill="#FFAA44" p-id="5344"></path></svg>`;
+
+    // Format size function (same as previously provided)
+    function formatSize(size) {
+        if (size < 1024) {
+            return size + ' B';
+        } else if (size < 1024 * 1024) {
+            return (size / 1024).toFixed(2) + ' KB';
+        } else if (size < 1024 * 1024 * 1024) {
+            return (size / (1024 * 1024)).toFixed(2) + ' MB';
+        } else {
+            return (size / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+        }
+    }
+
 
     function formatSize(bytes) {
         if (bytes < 1024) return bytes + ' B';
@@ -241,7 +286,7 @@
     }
 
     function renameFile(id, oldName) {
-        const newName = prompt("Enter new name:", oldName);
+        const newName = prompt("Renaming Enter new name:", oldName);
         if (newName && newName !== oldName) {
             fetch(`/files/update`, {
                 method: 'PUT',
