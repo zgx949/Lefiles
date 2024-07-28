@@ -5,6 +5,7 @@ import (
 	"Lefiles/models"
 	"Lefiles/services"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -115,6 +116,10 @@ func read(c *gin.Context) {
 		cond.Broadcast()
 		mutex.Unlock()
 	}()
+
+	filename := url.QueryEscape(fcb.Name)
+	c.Writer.Header().Set("Content-Disposition", "attachment; filename="+filename)
+	c.Writer.Header().Set("Content-Type", "application/octet-stream")
 
 	for i := 0; i < len(chunks); i++ {
 		mutex.Lock()
