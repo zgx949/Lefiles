@@ -9,38 +9,100 @@
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
+            background-color: #f9f9f9;
         }
         .container {
-            width: 80%;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .controls input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .controls button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        .controls button:hover {
+            background-color: #0056b3;
         }
         .file-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
         }
         .file-table th, .file-table td {
-            border: 1px solid #ccc;
-            padding: 10px;
+            padding: 15px;
             text-align: left;
         }
         .file-table th {
-            background-color: #f2f2f2;
+            background-color: #007bff;
+            color: white;
+        }
+        .file-table td {
+            border-bottom: 1px solid #ccc;
         }
         .file-actions {
+            display: flex;
+            justify-content: space-between;
             margin-top: 20px;
+        }
+        .file-actions input[type="text"], .file-actions input[type="file"] {
+            flex: 1;
+            padding: 10px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .file-actions button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            background-color: #28a745;
+            color: white;
+            cursor: pointer;
+        }
+        .file-actions button:hover {
+            background-color: #218838;
+        }
+        @media (max-width: 768px) {
+            .controls, .file-actions {
+                flex-direction: column;
+            }
+            .controls input[type="text"], .file-actions input[type="text"], .file-actions input[type="file"], .controls button, .file-actions button {
+                margin: 5px 0;
+                width: 100%;
+            }
         }
     </style>
 </head>
 <body>
 <div class="container">
     <h1>File Manager</h1>
-    <div>
-        <input type="text" id="pathInput" placeholder="Enter path" style="width: 80%;">
+    <div class="controls">
+        <input type="text" id="pathInput" placeholder="Enter path">
         <button onclick="loadDirectory()">Load</button>
     </div>
-    <div>
+    <div class="controls">
         <button onclick="goBack()">Back</button>
     </div>
     <table id="fileTable" class="file-table">
@@ -55,12 +117,12 @@
         <tbody></tbody>
     </table>
     <div class="file-actions">
-        <input type="text" id="newNameInput" placeholder="Enter name" style="width: 80%;">
+        <input type="text" id="newNameInput" placeholder="Enter name">
         <button onclick="createFile()">Create File</button>
         <button onclick="createDirectory()">Create Directory</button>
     </div>
     <div class="file-actions">
-        <input type="file" id="fileInput" style="width: 80%;">
+        <input type="file" id="fileInput">
         <button onclick="uploadFile()">Upload File</button>
     </div>
 </div>
@@ -92,7 +154,7 @@
                     const typeCell = document.createElement('td');
                     typeCell.textContent = file.IsDir ? 'Directory' : 'File';
                     const sizeCell = document.createElement('td');
-                    sizeCell.textContent = file.Size;
+                    sizeCell.textContent = formatSize(file.Size);
                     const actionCell = document.createElement('td');
 
                     const renameButton = document.createElement('button');
@@ -125,6 +187,13 @@
                 });
             })
             .catch(error => console.error('Error loading directory:', error));
+    }
+
+    function formatSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1048576) return (bytes / 1024).toFixed(2) + ' KB';
+        if (bytes < 1073741824) return (bytes / 1048576).toFixed(2) + ' MB';
+        return (bytes / 1073741824).toFixed(2) + ' GB';
     }
 
     function createFile() {
@@ -193,15 +262,27 @@
     function downloadFile(id) {
         const url = `/files/read?id=${id}`;
         fetch(url)
-            .then(response => response.blob())
-            .then(blob => {
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = 'file';
-                a.click();
+            .then(response => {
+                const disposition = response.headers.get('Content-Disposition');
+                let filename = 'file';
+                if (disposition && disposition.includes('filename=')) {
+                    const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+                    const matches = filenameRegex.exec(disposition);
+                    if (matches != null && matches[1]) {
+                        filename = decodeURIComponent(matches[1].replace(/['"]/g, ''));
+                    }
+                }
+                return response.blob().then(blob => {
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = filename;
+                    a.click();
+                    URL.revokeObjectURL(a.href); // 释放内存
+                });
             })
             .catch(error => console.error('Error downloading file:', error));
     }
+
 
     function shareFile(id) {
         const shareLink = `${window.location.origin}/files/read?id=${id}`;
