@@ -118,8 +118,9 @@ func read(c *gin.Context) {
 	}()
 
 	filename := url.QueryEscape(fcb.Name)
-	c.Writer.Header().Set("Content-Disposition", "attachment; filename="+filename)
-	c.Writer.Header().Set("Content-Type", "application/octet-stream")
+	c.Header("Content-Type", "application/octet-stream")
+	c.Header("Content-Disposition", "attachment; filename="+filename) // 用来指定下载下来的文件名
+	c.Header("Content-Transfer-Encoding", "binary")
 
 	for i := 0; i < len(chunks); i++ {
 		mutex.Lock()
@@ -141,7 +142,6 @@ func read(c *gin.Context) {
 
 // 删除文件/文件夹
 func del(c *gin.Context) {
-	var err error
 	id := c.Query("id")
 	parseUint, err := strconv.ParseUint(id, 10, 32)
 	if id == "" || err != nil {
@@ -149,22 +149,66 @@ func del(c *gin.Context) {
 		return
 	}
 
-	var fcb models.FCB
-
-	if fcb, err = services.QueryFcbById(uint(parseUint)); err != nil {
+	rootId := uint(parseUint)
+	_, err = services.QueryFcbById(rootId)
+	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "File/Directory not found"})
 		return
-	} else {
-		if err := config.DB.Delete(&fcb).Error; err != nil {
+	}
+
+	// 广度优先搜索删除队列
+	queue := []uint{rootId}
+
+	for len(queue) > 0 {
+		currentId := queue[0]
+		queue = queue[1:]
+
+		currentFcb, err := services.QueryFcbById(currentId)
+		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+
+		if !currentFcb.IsDir {
+			// 删除文件FCB
+			if err := config.DB.Delete(&currentFcb).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+
+			// 将对应的索引节点标记为已删除
+			inodes, err := services.ReadInodes(currentFcb)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot read inodes"})
+				return
+			}
+
+			for _, inode := range inodes {
+				// 软删除
+				if err := config.DB.Delete(&inode).Error; err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					return
+				}
+			}
+		} else {
+			// 获取子文件夹，将其 ID 加入队列
+			subFCBs, err := services.QueryFcbByParentId(currentId)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			for _, subFcb := range subFCBs {
+				queue = append(queue, subFcb.ID)
+			}
+
+			// 删除文件夹
+			if err := config.DB.Delete(&currentFcb).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+		}
 	}
-	// TODO: 需要迭代删除, 队列 广度优先删除
-	//fcbs, err := services.QueryFcbByParentId(fcb.ID)
-	//for _, fcb := range fcbs {
-	//
-	//}
+
 	c.JSON(http.StatusOK, gin.H{"message": "File/Directory deleted successfully"})
 }
 

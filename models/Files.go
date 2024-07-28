@@ -14,8 +14,8 @@ type FCB struct {
 
 type Inode struct {
 	gorm.Model
-	FCBId     uint   `gorm:"not null"` // 关联的FCB ID
-	FileIndex uint   // 文件索引号
-	Url       string // 文件存储路径
-	IsDeleted bool   // 是否被删除
+	FCBId     uint           `gorm:"not null"` // 关联的FCB ID
+	FileIndex uint           // 文件索引号
+	Url       string         // 文件存储路径
+	DeletedAt gorm.DeletedAt // 是否被删除
 }
