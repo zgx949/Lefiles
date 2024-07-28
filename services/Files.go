@@ -5,6 +5,7 @@ import (
 	"Lefiles/interfaces"
 	"Lefiles/models"
 	"Lefiles/services/storages"
+	"Lefiles/services/storages/baidu"
 	"Lefiles/utils"
 	"errors"
 	"log"
@@ -113,7 +114,7 @@ func ReadInodes(fcb models.FCB) (inodes []models.Inode, err error) {
 // 存储协议映射
 var protMap = map[string]interfaces.BlockStorage{
 	"local": storages.LocalStorage,
-	"baidu": storages.BaiduStorage,
+	"baidu": baidu.BaiduStorage,
 }
 
 func ReadChunkByUrl(url string) ([]byte, error) {
@@ -170,7 +171,10 @@ func GetInodes(amount uint, prot string, fcbId uint) ([]models.Inode, error) {
 	defer mutex.Unlock()
 
 	// 查询已删除的节点
-	if err := config.DB.Unscoped().Where("deleted_at is not null").Limit(int(amount)).Find(&deletedInodes).Error; err != nil {
+	if err := config.DB.Unscoped().
+		Where("deleted_at is not null AND url like ?", prot).
+		Limit(int(amount)).
+		Find(&deletedInodes).Error; err != nil {
 		return nil, err
 	}
 

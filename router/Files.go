@@ -368,7 +368,7 @@ func upload(c *gin.Context) {
 	totalChunks := (totalSize + int64(chunkSize) - 1) / int64(chunkSize)
 
 	// 分配inode索引节点
-	inodes, err := services.GetInodes(uint(totalChunks), "local", newFCB.ID)
+	inodes, err := services.GetInodes(uint(totalChunks), "baidu", newFCB.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
