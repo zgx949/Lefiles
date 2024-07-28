@@ -300,6 +300,7 @@ func upload(c *gin.Context) {
 	newFCB.Name = fileName
 	newFCB.ParentId = pathFcb.ID
 	newFCB.IsDir = false
+	newFCB.Size = uint(header.Size)
 
 	// 检查FCB是否存在
 	var existingFCB models.FCB
