@@ -4,6 +4,7 @@ import (
 	"Lefiles/config"
 	"Lefiles/interfaces"
 	"Lefiles/models"
+	"Lefiles/services/storages"
 	"Lefiles/utils"
 	"errors"
 	"log"
@@ -111,7 +112,8 @@ func ReadInodes(fcb models.FCB) (inodes []models.Inode, err error) {
 
 // 存储协议映射
 var protMap = map[string]interfaces.BlockStorage{
-	"local": LocalStorage,
+	"local": storages.LocalStorage,
+	"baidu": storages.BaiduStorage,
 }
 
 func ReadChunkByUrl(url string) ([]byte, error) {

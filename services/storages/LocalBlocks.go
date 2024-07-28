@@ -1,4 +1,4 @@
-package services
+package storages
 
 import (
 	"Lefiles/interfaces"
