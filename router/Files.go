@@ -60,7 +60,7 @@ func ls(c *gin.Context) {
 	c.JSON(http.StatusOK, fcbs)
 }
 
-// TODO:读取文件
+// 读取文件
 func read(c *gin.Context) {
 	id := c.Query("id")
 	parseUint, err := strconv.ParseUint(id, 10, 32)
@@ -267,6 +267,132 @@ func mkdir(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Directory created successfully"})
 }
 
+const chunkSize = 1024 * 1024 // 1MB
+
+// 上传文件
+func upload(c *gin.Context) {
+	file, header, err := c.Request.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "File is required"})
+		return
+	}
+	defer file.Close()
+
+	path := c.Query("path")
+	if path == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Path is required"})
+		return
+	}
+
+	// 获取对应路径的FCB
+	paths := strings.Split(path, "/")
+	dirPath := paths[:len(paths)-1]
+	fileName := paths[len(paths)-1]
+
+	pathFcb, err := services.FindPathFCB(strings.Join(dirPath, "/"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 新建FCB
+	var newFCB models.FCB
+	newFCB.Name = fileName
+	newFCB.ParentId = pathFcb.ID
+	newFCB.IsDir = false
+
+	// 检查FCB是否存在
+	var existingFCB models.FCB
+	if err = config.DB.Where("name = ? AND parent_id = ?", fileName, pathFcb.ID).First(&existingFCB).Error; err == nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "File already exists"})
+		return
+	}
+
+	if err = config.DB.Create(&newFCB).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 获取文件大小
+	totalSize := header.Size
+	totalChunks := (totalSize + int64(chunkSize) - 1) / int64(chunkSize)
+
+	// 分配inode索引节点
+	inodes, err := services.GetInodes(uint(totalChunks), "local", newFCB.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var currentChunk int64 = 0
+	buf := make([]byte, chunkSize)
+
+	for {
+		n, err := file.Read(buf)
+		if err != nil {
+			break
+		}
+
+		err = services.WriteBlockByUrl(inodes[currentChunk].Url, buf[:n])
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		currentChunk++
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "File uploaded successfully"})
+}
+
+// 下载文件
+func download(c *gin.Context) {
+	id := c.Query("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID is required"})
+		return
+	}
+
+	parseUint, err := strconv.ParseUint(id, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	fcb, err := services.QueryFcbById(uint(parseUint))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if fcb.IsDir {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot download directory"})
+		return
+	}
+
+	inodes, err := services.ReadInodes(fcb)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot read inodes"})
+		return
+	}
+
+	for i := range inodes {
+		chunk, err := services.ReadChunkByUrl(inodes[i].Url)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		_, err = c.Writer.Write(chunk)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to write chunk"})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "File downloaded successfully"})
+}
+
 // FilesRouterInit 初始化文件路由
 func FilesRouterInit(rg *gin.RouterGroup) {
 	rg.GET("/open", open)
@@ -276,4 +402,6 @@ func FilesRouterInit(rg *gin.RouterGroup) {
 	rg.PUT("/update", update)
 	rg.POST("/create", create)
 	rg.POST("/mkdir", mkdir)
+	rg.POST("/upload", upload)
+	rg.GET("/download", download)
 }

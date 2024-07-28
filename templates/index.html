@@ -59,6 +59,10 @@
         <button onclick="createFile()">Create File</button>
         <button onclick="createDirectory()">Create Directory</button>
     </div>
+    <div class="file-actions">
+        <input type="file" id="fileInput" style="width: 80%;">
+        <button onclick="uploadFile()">Upload File</button>
+    </div>
 </div>
 
 <script>
@@ -187,17 +191,14 @@
     }
 
     function downloadFile(id) {
-        fetch(`/files/read?id=${id}`)
+        const url = `/files/read?id=${id}`;
+        fetch(url)
             .then(response => response.blob())
             .then(blob => {
-                const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = url;
+                a.href = URL.createObjectURL(blob);
                 a.download = 'file';
-                document.body.appendChild(a);
                 a.click();
-                window.URL.revokeObjectURL(url);
             })
             .catch(error => console.error('Error downloading file:', error));
     }
@@ -209,6 +210,30 @@
         }).catch(err => {
             console.error('Error sharing file:', err);
         });
+    }
+
+    function uploadFile() {
+        const fileInput = document.getElementById('fileInput');
+        const file = fileInput.files[0];
+        if (!file) {
+            alert('No file selected');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const path = currentPath + file.name;
+        fetch(`/files/upload?path=${path}`, {
+            method: 'POST',
+            body: formData
+        })
+            .then(response => response.json())
+            .then(data => {
+                alert('File uploaded successfully');
+                loadDirectory(currentPath);
+            })
+            .catch(error => console.error('Error uploading file:', error));
     }
 
     function goBack() {

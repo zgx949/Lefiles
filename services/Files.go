@@ -4,6 +4,8 @@ import (
 	"Lefiles/config"
 	"Lefiles/interfaces"
 	"Lefiles/models"
+	"Lefiles/utils"
+	"errors"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -112,9 +114,12 @@ var protMap = map[string]interfaces.BlockStorage{
 }
 
 func ReadChunkByUrl(url string) ([]byte, error) {
-	// TODO：解析不同url协议，然后从本地或者远程读取文件块并返回
-
+	// 解析不同url协议，然后从本地或者远程读取文件块并返回
 	items := strings.Split(url, "://")
+	if len(items) != 2 {
+		return nil, errors.New("invalid URL format")
+	}
+
 	prot, path := items[0], items[1]
 	if storage, ok := protMap[prot]; ok {
 		path = "./blocks/" + path
@@ -122,10 +127,45 @@ func ReadChunkByUrl(url string) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		return block, err
+		return block, nil
 	}
 
-	log.Default().Println(prot, path)
+	log.Println("Unsupported protocol:", prot, "Path:", path)
+	return nil, errors.New("unsupported protocol")
+}
 
-	return nil, nil
+func WriteBlockByUrl(url string, buf []byte) error {
+	// 解析不同url协议，然后存储文件块
+	items := strings.Split(url, "://")
+	if len(items) != 2 {
+		return errors.New("invalid URL format")
+	}
+
+	prot, path := items[0], items[1]
+	if storage, ok := protMap[prot]; ok {
+		path = "./blocks/" + path
+		if err := storage.WriteBlock(path, buf); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	log.Println("Unsupported protocol:", prot, "Path:", path)
+	return errors.New("unsupported protocol")
+}
+
+// GetInodes 新建索引节点
+func GetInodes(amount uint, prot string, fcbId uint) ([]models.Inode, error) {
+	inodes := make([]models.Inode, 0)
+	for i := uint(0); i < amount; i++ {
+		inode := models.Inode{}
+		// 生成一个不重复的UUID
+		inode.Url = prot + "://" + utils.GenerateUUID()
+		inode.FCBId = fcbId
+		if err := config.DB.Create(&inode).Error; err != nil {
+			return nil, err
+		}
+		inodes = append(inodes, inode)
+	}
+	return inodes, nil
 }
