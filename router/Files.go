@@ -374,23 +374,22 @@ func upload(c *gin.Context) {
 		return
 	}
 
-	var currentChunk int64 = 0
+	var currentChunk int = 0
 	buf := make([]byte, chunkSize)
-
+	var wg sync.WaitGroup
+	wg.Add(int(totalChunks))
 	for {
 		n, err := file.Read(buf)
 		if err != nil {
 			break
 		}
-		err = services.WriteBlockByUrl(inodes[currentChunk].Url, buf[:n])
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
+		go func(bufBlock []byte, bufLen, currentIndex int) {
+			_ = services.WriteBlockByUrl(inodes[currentIndex].Url, bufBlock[:bufLen])
+			wg.Done()
+		}(buf, n, currentChunk)
 		currentChunk++
 	}
-
+	wg.Wait()
 	c.JSON(http.StatusOK, gin.H{"message": "File uploaded successfully"})
 }
 
