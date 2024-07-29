@@ -3,26 +3,11 @@ package main
 import (
 	"Lefiles/config"
 	"Lefiles/router"
-	"Lefiles/services/storages/baidu/pcsconfig"
-	"fmt"
 	"net/http"
-	"os"
 
 	"github.com/gin-gonic/gin"
 )
 
-func init() {
-
-	err := pcsconfig.Config.Init()
-	switch err {
-	case nil:
-	case pcsconfig.ErrConfigFileNoPermission, pcsconfig.ErrConfigContentsParseError:
-		fmt.Fprintf(os.Stderr, "FATAL ERROR: config file error: %s\n", err)
-		os.Exit(1)
-	default:
-		fmt.Printf("WARNING: config init error: %s\n", err)
-	}
-}
 func main() {
 	config.InitDB() // 初始化SQLite3
 

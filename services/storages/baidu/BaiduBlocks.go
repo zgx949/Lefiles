@@ -32,6 +32,15 @@ func init() {
 	//	return
 	//}
 	//log.Default().Println("百度帐号登录成功:", baidu.Name)
+	err := pcsconfig2.Config.Init()
+	switch err {
+	case nil:
+	case pcsconfig2.ErrConfigFileNoPermission, pcsconfig2.ErrConfigContentsParseError:
+		fmt.Fprintf(os.Stderr, "FATAL ERROR: config file error: %s\n", err)
+		os.Exit(1)
+	default:
+		fmt.Printf("WARNING: config init error: %s\n", err)
+	}
 }
 
 // 读取文件块
