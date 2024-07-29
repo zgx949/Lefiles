@@ -393,54 +393,6 @@ func upload(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "File uploaded successfully"})
 }
 
-// 下载文件
-func download(c *gin.Context) {
-	id := c.Query("id")
-	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID is required"})
-		return
-	}
-
-	parseUint, err := strconv.ParseUint(id, 10, 32)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
-		return
-	}
-
-	fcb, err := services.QueryFcbById(uint(parseUint))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	if fcb.IsDir {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot download directory"})
-		return
-	}
-
-	inodes, err := services.ReadInodes(fcb)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot read inodes"})
-		return
-	}
-
-	for i := range inodes {
-		chunk, err := services.ReadChunkByUrl(inodes[i].Url)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		_, err = c.Writer.Write(chunk)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to write chunk"})
-			return
-		}
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "File downloaded successfully"})
-}
-
 // FilesRouterInit 初始化文件路由
 func FilesRouterInit(rg *gin.RouterGroup) {
 	rg.GET("/open", open)
@@ -451,5 +403,4 @@ func FilesRouterInit(rg *gin.RouterGroup) {
 	rg.POST("/create", create)
 	rg.POST("/mkdir", mkdir)
 	rg.POST("/upload", upload)
-	rg.GET("/download", download)
 }
