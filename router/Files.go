@@ -316,7 +316,7 @@ func mkdir(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Directory created successfully"})
 }
 
-const chunkSize = 1024 * 1024 // 1MB
+const chunkSize = 10 * 1024 * 1024 // 1MB
 
 // 上传文件
 func upload(c *gin.Context) {
