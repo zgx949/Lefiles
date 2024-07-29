@@ -1,4 +1,4 @@
-package storages
+package local
 
 import (
 	"Lefiles/interfaces"

@@ -2,10 +2,8 @@ package services
 
 import (
 	"Lefiles/config"
-	"Lefiles/interfaces"
 	"Lefiles/models"
 	"Lefiles/services/storages"
-	"Lefiles/services/storages/baidu"
 	"Lefiles/utils"
 	"errors"
 	"log"
@@ -111,12 +109,6 @@ func ReadInodes(fcb models.FCB) (inodes []models.Inode, err error) {
 	return inodes, nil
 }
 
-// 存储协议映射
-var protMap = map[string]interfaces.BlockStorage{
-	"local": storages.LocalStorage,
-	"baidu": baidu.BaiduStorage,
-}
-
 func ReadChunkByUrl(url string) ([]byte, error) {
 	// 解析不同url协议，然后从本地或者远程读取文件块并返回
 	items := strings.Split(url, "://")
@@ -125,7 +117,7 @@ func ReadChunkByUrl(url string) ([]byte, error) {
 	}
 
 	prot, path := items[0], items[1]
-	if storage, ok := protMap[prot]; ok {
+	if storage, ok := storages.PROTMAP[prot]; ok {
 		path = "./blocks/" + path
 		block, err := storage.ReadBlock(path)
 		if err != nil {
@@ -146,7 +138,7 @@ func WriteBlockByUrl(url string, buf []byte) error {
 	}
 
 	prot, path := items[0], items[1]
-	if storage, ok := protMap[prot]; ok {
+	if storage, ok := storages.PROTMAP[prot]; ok {
 		path = "./blocks/" + path
 		if err := storage.WriteBlock(path, buf); err != nil {
 			return err
